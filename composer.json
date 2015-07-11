@@ -1,7 +1,7 @@
 {
-	"name": "jan-swiecki/simple-annotations",
+	"name": "vojtatranta/simple-annotations",
 	"description": "Simple annotation parser",
-	"homepage": "https://github.com/jan-swiecki/php-simple-annotations",
+	"homepage": "https://github.com/vojtatranta/php-simple-annotations",
 	"keywords": ["annotations", "annotation", "docblock", "parser"],
 	"license": "MIT",
 	"authors":
@@ -21,6 +21,11 @@
 		"psr-0":
 		{
 			"DocBlockReader": "src/"
-		}
+		},
+		"psr-4": 
+		{
+            "DocBlockReader": "src/"
+        },
+        "classmap": ["src"]
 	}
 }

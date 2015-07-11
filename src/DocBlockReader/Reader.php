@@ -14,30 +14,57 @@ class Reader
 	private $endPattern = "[ ]*(?:@|\r\n|\n)";
 	private $parsedAll = FALSE;
 
-	public function __construct()
+	protected $property = null;
+	protected $method = null;
+	protected $class = null;
+
+	public function __construct($class)
 	{
-		$arguments = func_get_args();
-		$count = count($arguments);
+		$this->class = $class;
+		$this->parameters[$this->class] = array();
+	}	
 
-		// get reflection from class or class/method
-		// (depends on constructor arguments)
-		if($count === 0) {
-			throw new \Exception("No zero argument constructor allowed");
-		} else if($count === 1) {
-			$reflection = new \ReflectionClass($arguments[0]);
-		} else {
-			$reflection = new \ReflectionMethod($arguments[0], $arguments[1]);
-		}
+	public function getClassDoc()
+	{
+		$this->property = null;
+		$this->method = null;
+		return $this->getDoc(new \ReflectionClass($this->class));
+	}
 
+	public function getPropertyDoc($property)
+	{
+		if (!property_exists($this->class, $property)) throw new \ReaderException("Property $property is not defined in class {$this->class}");
+		$this->property = $property;
+		$this->method = null;
+		return $this->getDoc(new \ReflectionProperty($this->class, $property));
+	}
+
+	public function getMethodDoc($method)
+	{
+		if (!method_exists($this->class, $method)) throw new \ReaderException("Method $method is not defined in class {$this->class}");
+		$this->property = null;
+		$this->method = $method;
+		return $this->getDoc(new \ReflectionMethod($this->class, $method));
+	}
+
+	protected function getDoc($reflection)
+	{
 		$this->rawDocBlock = $reflection->getDocComment();
-		$this->parameters = array();
+		$this->parse();
+		return $this->parameters[$this->getParsedType()];
+	}
+
+	protected function getParsedType()
+	{
+		if ($this->method or $this->property) return $this->method ? $this->method : $this->property;
+		else return $this->class;
 	}
 
 	private function parseSingle($key)
 	{
-		if(isset($this->parameters[$key]))
+		if(isset($this->parameters[$this->getParsedType()][$key]))
 		{
-			return $this->parameters[$key];
+			return $this->parameters[$this->getParsedType()][$key];
 		}
 		else
 		{
@@ -63,13 +90,13 @@ class Reader
 				// found many, save as array
 				else
 				{
-					$this->parameters[$key] = array();
+					$this->parameters[$this->getParsedType()][$key] = array();
 					foreach($matches[1] as $elem)
 					{
-						$this->parameters[$key][] = $this->parseValue($elem);
+						$this->parameters[$this->getParsedType()][$key][] = $this->parseValue($elem);
 					}
 
-					return $this->parameters[$key];
+					return $this->parameters[$this->getParsedType()][$key];
 				}
 			}
 		}
@@ -85,22 +112,22 @@ class Reader
 		{
 			if(preg_match("/^(".$this->keyPattern.") (.*)$/", $rawParameter, $match))
 			{
-				if(isset($this->parameters[$match[1]]))
+				if(isset($this->parameters[$this->getParsedType()][$match[1]]))
 				{
-					$this->parameters[$match[1]] = array_merge((array)$this->parameters[$match[1]], (array)$match[2]);
+					$this->parameters[$this->getParsedType()][$match[1]] = array_merge((array)$this->parameters[$this->getParsedType()][$match[1]], (array)$match[2]);
 				}
 				else
 				{
-					$this->parameters[$match[1]] = $this->parseValue($match[2]);
+					$this->parameters[$this->getParsedType()][$match[1]] = $this->parseValue($match[2]);
 				}
 			}
 			else if(preg_match("/^".$this->keyPattern."$/", $rawParameter, $match))
 			{
-				$this->parameters[$rawParameter] = TRUE;
+				$this->parameters[$this->getParsedType()][$rawParameter] = TRUE;
 			}
 			else
 			{
-				$this->parameters[$rawParameter] = NULL;
+				$this->parameters[$this->getParsedType()][$rawParameter] = NULL;
 			}
 		}
 	}
